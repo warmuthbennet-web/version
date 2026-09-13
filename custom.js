@@ -1,12 +1,13 @@
-/* ZypeHost - COMPLETE Branding & Localization Script */
+/* ZypeHost - Complete Branding & Localization */
 (function () {
   const config = {
-    checkInterval: 300,
-    maxAttempts: 30,
-    attempts: 0
+    checkInterval: 200,
+    maxAttempts: 50,
+    attempts: 0,
+    initialized: false
   };
 
-  // Translations
+  // ===== TRANSLATIONS =====
   const translations = {
     de: {
       pterodactyl: 'ZypeHost',
@@ -15,8 +16,8 @@
       username: 'Benutzername oder E-Mail',
       password: 'Passwort',
       forgotPassword: 'Passwort vergessen?',
-      lang_de: 'Deutsch',
-      lang_en: 'English'
+      lang_de: 'DE',
+      lang_en: 'EN'
     },
     en: {
       pterodactyl: 'ZypeHost',
@@ -25,8 +26,8 @@
       username: 'Username or Email',
       password: 'Password',
       forgotPassword: 'Forgot Password?',
-      lang_de: 'Deutsch',
-      lang_en: 'English'
+      lang_de: 'DE',
+      lang_en: 'EN'
     }
   };
 
@@ -43,8 +44,26 @@
     updateLangButtons();
   }
 
+  // ===== REMOVE ALL PTERODACTYL SVG LOGOS =====
+  function removePterodactylLogos() {
+    // Entferne alle SVG mit Pterodactyl
+    document.querySelectorAll('svg').forEach(svg => {
+      const viewBox = svg.getAttribute('viewBox');
+      if (viewBox && viewBox.includes('1280')) {
+        svg.remove();
+      }
+    });
+
+    // Entferne Pterodactyl Bilder/Icons
+    document.querySelectorAll('img[src*="pterodactyl"], img[src*="logo"]').forEach(img => {
+      if (!img.id.startsWith('zypehost')) {
+        img.style.display = 'none';
+      }
+    });
+  }
+
+  // ===== TEXT REPLACEMENT =====
   function applyTranslations() {
-    // Ersetze Pterodactyl überall
     const walk = document.createTreeWalker(
       document.documentElement,
       NodeFilter.SHOW_TEXT,
@@ -62,17 +81,22 @@
     nodesToReplace.forEach(n => {
       n.nodeValue = n.nodeValue
         .replace(/Pterodactyl®\s*©\s*\d+\s*-\s*\d+/g, getTranslation('pterodactylCopyright'))
-        .replace(/Pterodactyl/g, 'ZypeHost');
+        .replace(/Pterodactyl/g, 'ZypeHost')
+        .replace(/Login to Continue/gi, getTranslation('login'))
+        .replace(/Username or Email/gi, getTranslation('username'))
+        .replace(/Password/gi, getTranslation('password'))
+        .replace(/Forgot Password/gi, getTranslation('forgotPassword'));
     });
 
-    // Title
+    // Update page title
     if (document.title.includes('Pterodactyl')) {
       document.title = document.title.replace(/Pterodactyl/g, 'ZypeHost');
     }
   }
 
-  function createBadgeMenuAndFooter() {
-    // Logo Badge oben rechts
+  // ===== CREATE UI ELEMENTS =====
+  function createUIElements() {
+    // ===== LOGO BADGE =====
     let badge = document.getElementById('zypehost-badge-top');
     if (!badge && document.body) {
       badge = document.createElement('a');
@@ -80,41 +104,57 @@
       badge.href = 'https://zyphost.de';
       badge.target = '_blank';
       badge.rel = 'noopener noreferrer';
-      
+      badge.title = 'Visit ZypeHost';
+
       const img = document.createElement('img');
       img.src = '/themes/zypehost/logo.png';
-      img.alt = 'ZypeHost';
-      img.style.cssText = 'height: 40px; width: auto;';
-      
+      img.alt = 'ZypeHost Logo';
+      img.onerror = () => {
+        // Fallback wenn logo.png nicht existiert
+        img.remove();
+        badge.textContent = 'ZypeHost';
+        badge.style.cssText = 'font-weight: bold; font-size: 16px; color: #e2e8f0;';
+      };
+
       badge.appendChild(img);
       document.body.appendChild(badge);
     }
 
-    // Sprach-Menü
+    // ===== LANGUAGE MENU =====
     let langMenu = document.getElementById('zypehost-lang-menu');
     if (!langMenu && document.body) {
       langMenu = document.createElement('div');
       langMenu.id = 'zypehost-lang-menu';
       langMenu.className = 'zypehost-lang-menu';
 
+      // Deutsch Button
       const deBtn = document.createElement('button');
+      deBtn.className = 'lang-btn';
       deBtn.textContent = getTranslation('lang_de');
-      deBtn.classList.add('lang-btn');
+      deBtn.title = 'Deutsch';
       if (currentLang === 'de') deBtn.classList.add('active');
-      deBtn.onclick = () => setLanguage('de');
+      deBtn.onclick = (e) => {
+        e.preventDefault();
+        setLanguage('de');
+      };
 
+      // English Button
       const enBtn = document.createElement('button');
+      enBtn.className = 'lang-btn';
       enBtn.textContent = getTranslation('lang_en');
-      enBtn.classList.add('lang-btn');
+      enBtn.title = 'English';
       if (currentLang === 'en') enBtn.classList.add('active');
-      enBtn.onclick = () => setLanguage('en');
+      enBtn.onclick = (e) => {
+        e.preventDefault();
+        setLanguage('en');
+      };
 
       langMenu.appendChild(deBtn);
       langMenu.appendChild(enBtn);
       document.body.appendChild(langMenu);
     }
 
-    // Copyright Footer unten - IMMER SICHTBAR
+    // ===== COPYRIGHT FOOTER =====
     let copyrightFooter = document.getElementById('zypehost-copyright-footer');
     if (!copyrightFooter && document.body) {
       copyrightFooter = document.createElement('div');
@@ -126,55 +166,71 @@
     }
   }
 
+  // ===== UPDATE BUTTONS =====
   function updateLangButtons() {
     document.querySelectorAll('.lang-btn').forEach(btn => {
       btn.classList.remove('active');
     });
-    document.querySelectorAll(`.lang-btn`).forEach((btn, idx) => {
-      if ((currentLang === 'de' && idx === 0) || (currentLang === 'en' && idx === 1)) {
-        btn.classList.add('active');
-      }
-    });
+
+    const buttons = document.querySelectorAll('.lang-btn');
+    if (currentLang === 'de' && buttons[0]) buttons[0].classList.add('active');
+    if (currentLang === 'en' && buttons[1]) buttons[1].classList.add('active');
   }
 
-  function hideOldFooter() {
+  // ===== HIDE OLD FOOTER =====
+  function hideOldElements() {
     document.querySelectorAll(
       'footer, [class*="footer"], [class*="copyright"], .pterodactyl-footer, .footer-badge'
     ).forEach(el => {
-      if (el.id !== 'zypehost-copyright-footer' && el.id !== 'zypehost-lang-menu' && el.id !== 'zypehost-badge-top') {
+      if (el.id !== 'zypehost-copyright-footer' && 
+          el.id !== 'zypehost-lang-menu' && 
+          el.id !== 'zypehost-badge-top') {
         el.style.display = 'none !important';
       }
     });
+
+    removePterodactylLogos();
   }
 
+  // ===== INIT =====
   function init() {
     if (config.attempts < config.maxAttempts) {
+      if (!config.initialized) {
+        createUIElements();
+        config.initialized = true;
+      }
       applyTranslations();
-      createBadgeMenuAndFooter();
-      hideOldFooter();
+      hideOldElements();
       config.attempts++;
       setTimeout(init, config.checkInterval);
     }
   }
 
-  // Start
+  // ===== START =====
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
 
-  // Observer
+  // ===== MUTATION OBSERVER =====
   const observer = new MutationObserver(() => {
     applyTranslations();
-    hideOldFooter();
+    hideOldElements();
   });
+
   observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
     characterData: true
   });
 
-  // Globale Funktion
-  window.setZypeHostLanguage = setLanguage;
+  // ===== GLOBAL API =====
+  window.ZypeHost = {
+    setLanguage: setLanguage,
+    getCurrentLanguage: () => currentLang,
+    getTranslation: getTranslation
+  };
+
+  console.log('✅ ZypeHost Theme aktiv');
 })();
