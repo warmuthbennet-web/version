@@ -1,13 +1,13 @@
 /* Zyphost.de - COMPLETE Branding Script */
 (function () {
   const config = {
-    checkInterval: 500,
-    maxAttempts: 20,
+    checkInterval: 300,
+    maxAttempts: 30,
     attempts: 0
   };
 
   function safeReplace() {
-    // 1. Alle Text-Knoten durchsuchen und ersetzen (OHNE HTML zu zerstören)
+    // 1. Alle Text-Knoten durchsuchen und ersetzen
     const walk = document.createTreeWalker(
       document.documentElement,
       NodeFilter.SHOW_TEXT,
@@ -28,16 +28,35 @@
         .replace(/Pterodactyl/g, "Zyphost");
     });
 
-    // 2. Title
+    // 2. Title ersetzen
     if (document.title.includes("Pterodactyl")) {
       document.title = document.title.replace(/Pterodactyl/g, "Zyphost");
     }
 
-    // 3. Badge: Nur EINMAL erstellen, nicht ersetzen
-    let badge = document.getElementById("zyphost-footer-badge");
+    // 3. Alle Elemente durchsuchen die "Pterodactyl" enthalten
+    document.querySelectorAll("*").forEach(el => {
+      // Attributes
+      Array.from(el.attributes || []).forEach(attr => {
+        if (attr.value && attr.value.includes("Pterodactyl")) {
+          attr.value = attr.value
+            .replace(/Pterodactyl®?\s*©?\s*\d*\s*-\s*\d*/g, "Zyphost.de © 2015 - 2026")
+            .replace(/Pterodactyl/g, "Zyphost");
+        }
+      });
+    });
+
+    // 4. Footer/Copyright Elemente VERSTECKEN
+    document.querySelectorAll(
+      "footer, [class*='footer'], [class*='copyright'], .pterodactyl-footer, .footer-badge"
+    ).forEach(el => {
+      el.style.display = "none !important";
+    });
+
+    // 5. Badge oben rechts erstellen (nur 1x)
+    let badge = document.getElementById("zyphost-badge-top");
     if (!badge && document.body) {
       badge = document.createElement("div");
-      badge.id = "zyphost-footer-badge";
+      badge.id = "zyphost-badge-top";
       badge.textContent = "Zyphost.de © 2015 - 2026";
       document.body.appendChild(badge);
     }
