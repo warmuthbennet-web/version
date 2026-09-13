@@ -52,11 +52,14 @@
       el.style.display = "none !important";
     });
 
-    // 5. Badge oben rechts erstellen (nur 1x)
+    // 5. Badge oben rechts erstellen (nur 1x) - MIT LINK
     let badge = document.getElementById("zyphost-badge-top");
     if (!badge && document.body) {
-      badge = document.createElement("div");
+      badge = document.createElement("a");
       badge.id = "zyphost-badge-top";
+      badge.href = "https://zyphost.de";
+      badge.target = "_blank";
+      badge.rel = "noopener noreferrer";
       badge.textContent = "Zyphost.de © 2015 - 2026";
       document.body.appendChild(badge);
     }
