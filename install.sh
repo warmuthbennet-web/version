@@ -1,6 +1,6 @@
 #!/bin/bash
 # =========================================================
-#  Zyphost.de – Pterodactyl Theme Installer (Blade Template)
+#  Zyphost.de – Pterodactyl Theme Installer (Direct HTML Injection)
 #  Auf dem Server ausführen, z.B.:
 #     bash install.sh /var/www/pterodactyl
 # =========================================================
@@ -8,17 +8,12 @@
 set -e
 
 PANEL_DIR="${1:-/var/www/pterodactyl}"
-THEME_DIR="$PANEL_DIR/public/themes/zyphost"
-WRAPPER_FILE="$PANEL_DIR/resources/views/templates/wrapper.blade.php"
+PUBLIC_DIR="$PANEL_DIR/public"
+INDEX_FILE="$PUBLIC_DIR/index.html"
+THEME_DIR="$PUBLIC_DIR/themes/zyphost"
 
 if [ ! -d "$PANEL_DIR" ]; then
-  echo "Panel-Verzeichnis nicht gefunden: $PANEL_DIR"
-  echo "Aufruf z.B.: bash install.sh /var/www/pterodactyl"
-  exit 1
-fi
-
-if [ ! -f "$WRAPPER_FILE" ]; then
-  echo "Wrapper-Template nicht gefunden unter $WRAPPER_FILE"
+  echo "❌ Panel-Verzeichnis nicht gefunden: $PANEL_DIR"
   exit 1
 fi
 
@@ -29,42 +24,73 @@ echo "==> Kopiere custom.css und custom.js"
 cp "$(dirname "$0")/custom.css" "$THEME_DIR/custom.css"
 cp "$(dirname "$0")/custom.js" "$THEME_DIR/custom.js"
 
-echo "==> Sichere Original wrapper.blade.php (falls noch nicht geschehen)"
-if [ ! -f "$WRAPPER_FILE.zyphost-backup" ]; then
-  cp "$WRAPPER_FILE" "$WRAPPER_FILE.zyphost-backup"
-fi
-
-echo "==> Prüfe ob Theme bereits eingebunden ist"
-if grep -q "zyphost/custom.css" "$WRAPPER_FILE"; then
-  echo "Theme ist bereits eingebunden. Aktualisiere es..."
-else
-  echo "==> Binde Theme in wrapper.blade.php ein"
-  # Fügt CSS + JS direkt vor </head> im Blade-Template ein
-  sed -i 's#</head>#  <link rel="stylesheet" href="/themes/zyphost/custom.css">\n  <script defer src="/themes/zyphost/custom.js"><\/script>\n</head>#' "$WRAPPER_FILE"
-fi
-
 echo "==> Setze korrekte Rechte"
 chown -R www-data:www-data "$THEME_DIR" || true
-chmod -R 755 "$THEME_DIR"
+chmod -R 644 "$THEME_DIR"/*
 
-echo "==> Leere Laravel View-Cache und Compiled Cache"
-if [ -f "$PANEL_DIR/artisan" ]; then
-  php "$PANEL_DIR/artisan" view:clear || true
-  php "$PANEL_DIR/artisan" cache:clear || true
-  php "$PANEL_DIR/artisan" config:cache || true
+echo "==> Erstelle PHP-Wrapper in public/index.html"
+
+# Backup
+if [ -f "$INDEX_FILE" ]; then
+  cp "$INDEX_FILE" "$INDEX_FILE.backup-$(date +%s)"
 fi
 
-echo "==> Leere Browser-Cache Hinweis"
-echo "WICHTIG: Öffne dein Browser-Developer-Tools und deaktiviere 'Cache'"
-echo "oder lade die Seite mit Strg+Shift+R (Windows) oder Cmd+Shift+R (Mac)"
+# Erstelle direkte HTML mit injiziertem Script
+cat > "$PUBLIC_DIR/inject.php" << 'PHPCODE'
+<?php
+// Auto-load und Theme-Injection für Pterodactyl
+error_reporting(0);
+
+// Theme-Dateien direkt einbinden
+$css = file_get_contents(__DIR__ . '/themes/zyphost/custom.css');
+$js = file_get_contents(__DIR__ . '/themes/zyphost/custom.js');
+
+// HTML wird direkt modified
+ob_start();
+include __DIR__ . '/index.html';
+$html = ob_get_clean();
+
+// Injection vor </head>
+$html = str_replace('</head>', 
+  "<style>\n" . $css . "\n</style>\n" .
+  "<script>\n" . $js . "\n</script>\n" .
+  '</head>',
+  $html
+);
+
+echo $html;
+?>
+PHPCODE
+
+echo "==> Erstelle .htaccess für Apache (falls vorhanden)"
+cat > "$PUBLIC_DIR/.htaccess" << 'HTCODE'
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ inject.php [QSA,L]
+</IfModule>
+HTCODE
+
+chmod 644 "$PUBLIC_DIR/.htaccess"
+
+echo "==> Leere Laravel Cache"
+if [ -f "$PANEL_DIR/artisan" ]; then
+  cd "$PANEL_DIR"
+  php artisan view:clear 2>/dev/null || true
+  php artisan cache:clear 2>/dev/null || true
+fi
 
 echo ""
-echo "✅ Fertig! Theme installiert unter: $THEME_DIR"
-echo "✅ Original Wrapper gesichert unter: $WRAPPER_FILE.zyphost-backup"
+echo "✅ Fertig! Theme installiert"
+echo ""
+echo "Dateien:"
+echo "  - $THEME_DIR/custom.css"
+echo "  - $THEME_DIR/custom.js"
+echo "  - $PUBLIC_DIR/inject.php"
 echo ""
 echo "🔄 Nächste Schritte:"
-echo "1. Browser-Cache leeren (Strg+Shift+R)"
-echo "2. Panel neu laden"
-echo "3. Falls immer noch alte Version: nginx/Apache neu starten"
-echo "   sudo systemctl restart nginx  (oder apache2 / php-fpm)"
+echo "1. Browser neu laden (Strg+F5)"
+echo "2. Falls noch nicht: nginx/Apache neu starten"
+echo "   sudo systemctl restart nginx"
 echo ""
