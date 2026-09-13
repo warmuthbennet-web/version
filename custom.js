@@ -6,16 +6,8 @@
     attempts: 0
   };
 
-  function hardReplace() {
-    // 1. Alle HTML durchsuchen
-    const bodyHTML = document.documentElement.innerHTML;
-    if (bodyHTML.includes("Pterodactyl")) {
-      document.documentElement.innerHTML = bodyHTML
-        .replace(/Pterodactyl®\s*©\s*\d+\s*-\s*\d+/g, "Zyphost.de © 2015 - 2026")
-        .replace(/Pterodactyl/g, "Zyphost");
-    }
-
-    // 2. Alle Text-Knoten
+  function safeReplace() {
+    // 1. Alle Text-Knoten durchsuchen und ersetzen (OHNE HTML zu zerstören)
     const walk = document.createTreeWalker(
       document.documentElement,
       NodeFilter.SHOW_TEXT,
@@ -32,18 +24,18 @@
 
     nodesToReplace.forEach(n => {
       n.nodeValue = n.nodeValue
-        .replace(/Pterodactyl®?\s*©?\s*\d*\s*-\s*\d*/g, "Zyphost.de © 2015 - 2026")
+        .replace(/Pterodactyl®\s*©\s*\d+\s*-\s*\d+/g, "Zyphost.de © 2015 - 2026")
         .replace(/Pterodactyl/g, "Zyphost");
     });
 
-    // 3. Title
+    // 2. Title
     if (document.title.includes("Pterodactyl")) {
       document.title = document.title.replace(/Pterodactyl/g, "Zyphost");
     }
 
-    // 4. Badge zentriert positionieren (nur 1x "Zyphost.de")
+    // 3. Badge: Nur EINMAL erstellen, nicht ersetzen
     let badge = document.getElementById("zyphost-footer-badge");
-    if (!badge) {
+    if (!badge && document.body) {
       badge = document.createElement("div");
       badge.id = "zyphost-footer-badge";
       badge.textContent = "Zyphost.de © 2015 - 2026";
@@ -53,7 +45,7 @@
 
   function init() {
     if (config.attempts < config.maxAttempts) {
-      hardReplace();
+      safeReplace();
       config.attempts++;
       setTimeout(init, config.checkInterval);
     }
@@ -67,7 +59,7 @@
   }
 
   // MutationObserver für späte Änderungen
-  const observer = new MutationObserver(hardReplace);
+  const observer = new MutationObserver(safeReplace);
   observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
