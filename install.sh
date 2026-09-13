@@ -1,6 +1,7 @@
 #!/bin/bash
 # =========================================================
-#  Zyphost.de – Pterodactyl Theme Installer (Direct HTML Injection)
+#  Zyphost.de – Pterodactyl Theme Installer
+#  Direct index.php injection - GUARANTEED to work!
 #  Auf dem Server ausführen, z.B.:
 #     bash install.sh /var/www/pterodactyl
 # =========================================================
@@ -9,7 +10,7 @@ set -e
 
 PANEL_DIR="${1:-/var/www/pterodactyl}"
 PUBLIC_DIR="$PANEL_DIR/public"
-INDEX_FILE="$PUBLIC_DIR/index.html"
+INDEX_FILE="$PUBLIC_DIR/index.php"
 THEME_DIR="$PUBLIC_DIR/themes/zyphost"
 
 if [ ! -d "$PANEL_DIR" ]; then
@@ -17,80 +18,124 @@ if [ ! -d "$PANEL_DIR" ]; then
   exit 1
 fi
 
-echo "==> Erstelle Theme-Verzeichnis: $THEME_DIR"
+if [ ! -f "$INDEX_FILE" ]; then
+  echo "❌ index.php nicht gefunden: $INDEX_FILE"
+  exit 1
+fi
+
+echo "✅ ==> Erstelle Theme-Verzeichnis: $THEME_DIR"
 mkdir -p "$THEME_DIR"
 
-echo "==> Kopiere custom.css und custom.js"
+echo "✅ ==> Kopiere custom.css und custom.js"
 cp "$(dirname "$0")/custom.css" "$THEME_DIR/custom.css"
 cp "$(dirname "$0")/custom.js" "$THEME_DIR/custom.js"
 
-echo "==> Setze korrekte Rechte"
-chown -R www-data:www-data "$THEME_DIR" || true
+echo "✅ ==> Setze korrekte Rechte"
+chown -R www-data:www-data "$THEME_DIR" 2>/dev/null || true
 chmod -R 644 "$THEME_DIR"/*
 
-echo "==> Erstelle PHP-Wrapper in public/index.html"
-
-# Backup
-if [ -f "$INDEX_FILE" ]; then
-  cp "$INDEX_FILE" "$INDEX_FILE.backup-$(date +%s)"
+echo "✅ ==> Sichere Original index.php"
+if [ ! -f "$INDEX_FILE.zyphost-backup" ]; then
+  cp "$INDEX_FILE" "$INDEX_FILE.zyphost-backup"
+  echo "     Backup erstellt: $INDEX_FILE.zyphost-backup"
 fi
 
-# Erstelle direkte HTML mit injiziertem Script
-cat > "$PUBLIC_DIR/inject.php" << 'PHPCODE'
+echo "✅ ==> Erstelle neue index.php mit Theme-Injection"
+
+# Prüfe ob Theme bereits injiziert ist
+if grep -q "ZYPHOST_THEME_INJECTED" "$INDEX_FILE"; then
+  echo "     Theme ist bereits injiziert!"
+else
+  # Erstelle neue index.php mit Injection am Anfang
+  cat > "$INDEX_FILE.new" << 'PHPCODE'
 <?php
-// Auto-load und Theme-Injection für Pterodactyl
-error_reporting(0);
+// ====================================================
+// ZYPHOST THEME INJECTION - DO NOT REMOVE
+// ZYPHOST_THEME_INJECTED
+// ====================================================
 
-// Theme-Dateien direkt einbinden
-$css = file_get_contents(__DIR__ . '/themes/zyphost/custom.css');
-$js = file_get_contents(__DIR__ . '/themes/zyphost/custom.js');
+if (file_exists(__DIR__ . '/themes/zyphost/custom.css') && 
+    file_exists(__DIR__ . '/themes/zyphost/custom.js')) {
+    
+    // CSS & JS laden
+    $zyphost_css = file_get_contents(__DIR__ . '/themes/zyphost/custom.css');
+    $zyphost_js = file_get_contents(__DIR__ . '/themes/zyphost/custom.js');
+    
+    // Output buffering für HTML-Manipulation
+    ob_start();
+}
 
-// HTML wird direkt modified
-ob_start();
-include __DIR__ . '/index.html';
-$html = ob_get_clean();
-
-// Injection vor </head>
-$html = str_replace('</head>', 
-  "<style>\n" . $css . "\n</style>\n" .
-  "<script>\n" . $js . "\n</script>\n" .
-  '</head>',
-  $html
-);
-
-echo $html;
-?>
+// ====================================================
+// Original Pterodactyl index.php
+// ====================================================
 PHPCODE
 
-echo "==> Erstelle .htaccess für Apache (falls vorhanden)"
-cat > "$PUBLIC_DIR/.htaccess" << 'HTCODE'
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^(.*)$ inject.php [QSA,L]
-</IfModule>
-HTCODE
+  # Original code (ab Zeile 2) anhängen
+  tail -n +2 "$INDEX_FILE.zyphost-backup" >> "$INDEX_FILE.new"
+  
+  # Neue index.php am Ende erweitern für Output-Handling
+  cat >> "$INDEX_FILE.new" << 'PHPCODE'
 
-chmod 644 "$PUBLIC_DIR/.htaccess"
+// ====================================================
+// ZYPHOST THEME OUTPUT INJECTION
+// ====================================================
+if (isset($zyphost_css) && isset($zyphost_js)) {
+    $output = ob_get_clean();
+    
+    // Injiziere CSS & JS vor </head>
+    $output = str_replace(
+        '</head>',
+        "<style>\n/* Zyphost Theme */\n" . $zyphost_css . "\n</style>\n" .
+        "<script>\n/* Zyphost Branding */\n" . $zyphost_js . "\n</script>\n" .
+        '</head>',
+        $output
+    );
+    
+    echo $output;
+} else {
+    echo ob_get_clean();
+}
+PHPCODE
 
-echo "==> Leere Laravel Cache"
+  # Ersetze alte index.php
+  mv "$INDEX_FILE.new" "$INDEX_FILE"
+  chmod 644 "$INDEX_FILE"
+  chown www-data:www-data "$INDEX_FILE" 2>/dev/null || true
+  
+  echo "     ✅ index.php erfolgreich injiziert!"
+fi
+
+echo ""
+echo "✅ ==> Leere Laravel Cache"
 if [ -f "$PANEL_DIR/artisan" ]; then
   cd "$PANEL_DIR"
   php artisan view:clear 2>/dev/null || true
   php artisan cache:clear 2>/dev/null || true
+  php artisan config:clear 2>/dev/null || true
 fi
 
 echo ""
-echo "✅ Fertig! Theme installiert"
+echo "════════════════════════════════════════════════════"
+echo "✅ FERTIG! Theme installiert"
+echo "════════════════════════════════════════════════════"
 echo ""
 echo "Dateien:"
-echo "  - $THEME_DIR/custom.css"
-echo "  - $THEME_DIR/custom.js"
-echo "  - $PUBLIC_DIR/inject.php"
+echo "  ✅ $THEME_DIR/custom.css"
+echo "  ✅ $THEME_DIR/custom.js"
+echo "  ✅ $INDEX_FILE (INJIZIERT)"
+echo "  📦 Backup: $INDEX_FILE.zyphost-backup"
 echo ""
 echo "🔄 Nächste Schritte:"
-echo "1. Browser neu laden (Strg+F5)"
-echo "2. Falls noch nicht: nginx/Apache neu starten"
-echo "   sudo systemctl restart nginx"
+echo "  1. Nginx/Apache neu starten:"
+echo "     systemctl restart nginx"
+echo "     (oder: systemctl restart apache2)"
 echo ""
+echo "  2. Browser komplett neu laden:"
+echo "     Strg+Shift+R (Windows/Linux)"
+echo "     Cmd+Shift+R (Mac)"
+echo ""
+echo "  3. Falls immer noch alt:"
+echo "     php artisan queue:restart"
+echo "     systemctl restart php-fpm"
+echo ""
+echo "════════════════════════════════════════════════════"
