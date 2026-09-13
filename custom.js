@@ -1,64 +1,67 @@
-/* Zyphost.de - Aggressives Branding & Copyright Script */
+/* Zyphost.de - COMPLETE Branding Script */
 (function () {
-  const ZYPHOST_TEXT = "Zyphost.de © 2015 - 2026";
-  
-  function replaceAllText() {
-    // Alle Text-Nodes durchsuchen und Pterodactyl ersetzen
-    const walker = document.createTreeWalker(
-      document.body,
+  const config = {
+    checkInterval: 500,
+    maxAttempts: 20,
+    attempts: 0
+  };
+
+  function hardReplace() {
+    // 1. Alle HTML durchsuchen
+    const bodyHTML = document.documentElement.innerHTML;
+    if (bodyHTML.includes("Pterodactyl")) {
+      document.documentElement.innerHTML = bodyHTML
+        .replace(/Pterodactyl®\s*©\s*\d+\s*-\s*\d+/g, "Zyphost.de © 2015 - 2026")
+        .replace(/Pterodactyl/g, "Zyphost");
+    }
+
+    // 2. Alle Text-Knoten
+    const walk = document.createTreeWalker(
+      document.documentElement,
       NodeFilter.SHOW_TEXT,
-      null,
-      false
+      null
     );
 
     let node;
-    while (node = walker.nextNode()) {
-      if (node.nodeValue.includes("Pterodactyl")) {
-        node.nodeValue = node.nodeValue.replace(/Pterodactyl[®]?\s*©\s*\d+\s*-\s*\d+/gi, ZYPHOST_TEXT);
-        node.nodeValue = node.nodeValue.replace(/Pterodactyl/gi, "Zyphost");
+    const nodesToReplace = [];
+    while (node = walk.nextNode()) {
+      if (node.nodeValue && node.nodeValue.includes("Pterodactyl")) {
+        nodesToReplace.push(node);
       }
     }
-  }
 
-  function replaceInHTML() {
-    // innerHTML durchsuchen
-    if (document.body.innerHTML.includes("Pterodactyl")) {
-      document.body.innerHTML = document.body.innerHTML.replace(
-        /Pterodactyl[®]?\s*©\s*\d+\s*-\s*\d+/gi,
-        ZYPHOST_TEXT
-      );
-    }
-  }
+    nodesToReplace.forEach(n => {
+      n.nodeValue = n.nodeValue
+        .replace(/Pterodactyl®?\s*©?\s*\d*\s*-\s*\d*/g, "Zyphost.de © 2015 - 2026")
+        .replace(/Pterodactyl/g, "Zyphost");
+    });
 
-  function updateTitle() {
+    // 3. Title
     if (document.title.includes("Pterodactyl")) {
-      document.title = document.title.replace(/Pterodactyl/gi, "Zyphost");
+      document.title = document.title.replace(/Pterodactyl/g, "Zyphost");
     }
   }
 
-  function applyBranding() {
-    updateTitle();
-    replaceAllText();
+  function init() {
+    if (config.attempts < config.maxAttempts) {
+      hardReplace();
+      config.attempts++;
+      setTimeout(init, config.checkInterval);
+    }
   }
 
-  // Initial beim Laden
-  document.addEventListener("DOMContentLoaded", function() {
-    applyBranding();
-    replaceInHTML();
-  });
+  // Start beim Laden
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 
-  // MutationObserver - lauscht auf ALLE DOM-Änderungen
-  const observer = new MutationObserver(function(mutations) {
-    applyBranding();
-  });
-
-  observer.observe(document.body, {
+  // MutationObserver für späte Änderungen
+  const observer = new MutationObserver(hardReplace);
+  observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
-    characterData: true,
-    characterDataOldValue: false
+    characterData: true
   });
-
-  // Extra-Intervall zur Sicherheit
-  setInterval(applyBranding, 800);
 })();
