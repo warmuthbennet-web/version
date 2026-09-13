@@ -1,36 +1,64 @@
-/* Zyphost.de - Branding & Copyright Script */
+/* Zyphost.de - Aggressives Branding & Copyright Script */
 (function () {
-  function applyBranding() {
-    // 1. Browser-Tab-Titel anpassen
-    if (document.title && !document.title.includes("Zyphost")) {
-      document.title = document.title.replace(/Pterodactyl/i, "Zyphost");
+  const ZYPHOST_TEXT = "Zyphost.de © 2015 - 2026";
+  
+  function replaceAllText() {
+    // Alle Text-Nodes durchsuchen und Pterodactyl ersetzen
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+
+    let node;
+    while (node = walker.nextNode()) {
+      if (node.nodeValue.includes("Pterodactyl")) {
+        node.nodeValue = node.nodeValue.replace(/Pterodactyl[®]?\s*©\s*\d+\s*-\s*\d+/gi, ZYPHOST_TEXT);
+        node.nodeValue = node.nodeValue.replace(/Pterodactyl/gi, "Zyphost");
+      }
     }
-
-    // 2. Alle Pterodactyl-Copyright-Texte im DOM finden und ersetzen
-    var elements = document.querySelectorAll("*");
-    elements.forEach(function(el) {
-      if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
-        let text = el.childNodes[0].nodeValue;
-        // Pterodactyl Copyright komplett entfernen und durch Zyphost ersetzen
-        if (text.includes("Pterodactyl") && text.includes("©")) {
-          el.textContent = "Zyphost.de © 2015 - 2026";
-        }
-      }
-    });
-
-    // 3. Auch HTML-Content mit Pterodactyl ersetzen
-    var footers = document.querySelectorAll("footer, [class*='footer'], [class*='Footer']");
-    footers.forEach(function(footer) {
-      if (footer.innerHTML.includes("Pterodactyl")) {
-        footer.innerHTML = footer.innerHTML.replace(
-          /Pterodactyl.*?© \d+ - \d+/gi,
-          "Zyphost.de © 2015 - 2026"
-        );
-      }
-    });
   }
 
-  document.addEventListener("DOMContentLoaded", applyBranding);
-  // Regelmäßig prüfen, da Pterodactyl als Single Page Application (SPA) neu rendert
-  setInterval(applyBranding, 1000);
+  function replaceInHTML() {
+    // innerHTML durchsuchen
+    if (document.body.innerHTML.includes("Pterodactyl")) {
+      document.body.innerHTML = document.body.innerHTML.replace(
+        /Pterodactyl[®]?\s*©\s*\d+\s*-\s*\d+/gi,
+        ZYPHOST_TEXT
+      );
+    }
+  }
+
+  function updateTitle() {
+    if (document.title.includes("Pterodactyl")) {
+      document.title = document.title.replace(/Pterodactyl/gi, "Zyphost");
+    }
+  }
+
+  function applyBranding() {
+    updateTitle();
+    replaceAllText();
+  }
+
+  // Initial beim Laden
+  document.addEventListener("DOMContentLoaded", function() {
+    applyBranding();
+    replaceInHTML();
+  });
+
+  // MutationObserver - lauscht auf ALLE DOM-Änderungen
+  const observer = new MutationObserver(function(mutations) {
+    applyBranding();
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    characterDataOldValue: false
+  });
+
+  // Extra-Intervall zur Sicherheit
+  setInterval(applyBranding, 800);
 })();
