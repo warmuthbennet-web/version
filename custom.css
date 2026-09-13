@@ -27,7 +27,23 @@ footer,
   color: var(--zh-text-dim, #9aa4b2);
   opacity: 0.8;
   z-index: 99999;
-  pointer-events: none;
+  pointer-events: auto;
   font-family: 'Inter', 'Segoe UI', sans-serif;
   white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+#zyphost-badge-top:hover {
+  opacity: 1;
+}
+
+#zyphost-badge-top a {
+  color: inherit;
+  text-decoration: none;
+}
+
+#zyphost-badge-top a:hover {
+  text-decoration: underline;
 }
