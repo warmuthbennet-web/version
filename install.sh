@@ -36,26 +36,35 @@ fi
 
 echo "==> Prüfe ob Theme bereits eingebunden ist"
 if grep -q "zyphost/custom.css" "$WRAPPER_FILE"; then
-  echo "Theme ist bereits eingebunden. Nichts zu tun."
+  echo "Theme ist bereits eingebunden. Aktualisiere es..."
 else
   echo "==> Binde Theme in wrapper.blade.php ein"
   # Fügt CSS + JS direkt vor </head> im Blade-Template ein
-  sed -i 's#</head>#  <link rel="stylesheet" href="/themes/zyphost/custom.css">\n  <script defer src="/themes/zyphost/custom.js"></script>\n</head>#' "$WRAPPER_FILE"
+  sed -i 's#</head>#  <link rel="stylesheet" href="/themes/zyphost/custom.css">\n  <script defer src="/themes/zyphost/custom.js"><\/script>\n</head>#' "$WRAPPER_FILE"
 fi
 
 echo "==> Setze korrekte Rechte"
 chown -R www-data:www-data "$THEME_DIR" || true
 chmod -R 755 "$THEME_DIR"
 
-echo "==> Leere Laravel View-Cache"
+echo "==> Leere Laravel View-Cache und Compiled Cache"
 if [ -f "$PANEL_DIR/artisan" ]; then
   php "$PANEL_DIR/artisan" view:clear || true
+  php "$PANEL_DIR/artisan" cache:clear || true
+  php "$PANEL_DIR/artisan" config:cache || true
 fi
 
+echo "==> Leere Browser-Cache Hinweis"
+echo "WICHTIG: Öffne dein Browser-Developer-Tools und deaktiviere 'Cache'"
+echo "oder lade die Seite mit Strg+Shift+R (Windows) oder Cmd+Shift+R (Mac)"
+
 echo ""
-echo "Fertig! Theme installiert unter: $THEME_DIR"
-echo "Original Wrapper gesichert unter: $WRAPPER_FILE.zyphost-backup"
+echo "✅ Fertig! Theme installiert unter: $THEME_DIR"
+echo "✅ Original Wrapper gesichert unter: $WRAPPER_FILE.zyphost-backup"
 echo ""
-echo "Hinweis: Nach jedem Panel-Update (php artisan p:upgrade) oder wenn"
-echo "du manuell den Cache leereSst, bleibt das Theme erhalten, da Laravel"
-echo "nun das Blade-Template nutzt."
+echo "🔄 Nächste Schritte:"
+echo "1. Browser-Cache leeren (Strg+Shift+R)"
+echo "2. Panel neu laden"
+echo "3. Falls immer noch alte Version: nginx/Apache neu starten"
+echo "   sudo systemctl restart nginx  (oder apache2 / php-fpm)"
+echo ""
