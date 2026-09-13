@@ -40,6 +40,15 @@
     if (document.title.includes("Pterodactyl")) {
       document.title = document.title.replace(/Pterodactyl/g, "Zyphost");
     }
+
+    // 4. Badge zentriert positionieren (nur 1x "Zyphost.de")
+    let badge = document.getElementById("zyphost-footer-badge");
+    if (!badge) {
+      badge = document.createElement("div");
+      badge.id = "zyphost-footer-badge";
+      badge.textContent = "Zyphost.de © 2015 - 2026";
+      document.body.appendChild(badge);
+    }
   }
 
   function init() {
